@@ -1,0 +1,34 @@
+filter {
+  if [type] == "{{ elk_input_type }}"
+    {
+    grok {
+      match => { "message" => "(?<log_timestamp>%{DAY:day}(%{SPACE}|%{SPACE}%{SPACE})(%{MONTH:month} %{MONTHDAY:monthday}|%{MONTHDAY:monthday} %{MONTH:month}) %{TIME:time} (?<TZ>:[APMCE][SD]T|UTC|CEST|CET) %{YEAR:year}): (?<log_hostname>%{WORD}|%{SPACE}) ---------- (?:\[%{LOGLEVEL:level}\]) (?<log_type>%{GREEDYDATA}): (?<log_message>%{GREEDYDATA})"}
+     }
+    mutate {
+      add_field => {
+        "timestamp" =>  "%{time} %{month} %{monthday} %{year}"
+                   }
+           }
+    date {
+      match => [ "timestamp" , "HH:mm:ss MMM dd yyyy" , "HH:mm:ss MMM dd yyyy" ]
+      target => "@timestamp"
+    }
+  }
+
+  if [type] == "{{ elk_input_type_2 }}"
+    {
+    multiline {
+      patterns_dir => ["/etc/logstash/conf.d/patterns"]
+      negate => 'true'
+      pattern => "^(?<log_hostname>%{WORD}) %{TIMESTAMP_ISO8601} "
+      what => 'previous'
+    }
+    grok {
+      patterns_dir => ["/etc/logstash/conf.d/patterns"]
+      match => { "message" => "(?<log_hostname>%{WORD}) %{ODOOLOG}" }
+         }
+    date {
+      match => [ "timestamp", "yyyy-MM-dd HH:mm:ss,SSS" ]
+         }
+    }
+}

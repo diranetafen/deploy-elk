@@ -1,0 +1,91 @@
+---
+  - name: "Deploy and configure elk"
+    hosts: elk-cluster 
+    become: yes
+    gather_facts: false
+
+    tasks:
+    
+    - name: bypass issue https://github.com/docker-library/elasticsearch/issues/111
+      sysctl:
+        name: vm.max_map_count
+        value: 262144 
+
+    - name: ensure elk data dir exists
+      file: path="{{elk_data_directory}}" state=directory
+
+    - name: ensure elk base dir exists
+      file: path="{{elk_base_directory}}" state=directory
+
+    - name: ensure elk input dir exists, this directory contains all logs from client's tablet
+      file: path="{{elk_input_directory}}" state=directory
+
+    - name: ensure elk config dir exists
+      file: path="{{elk_config_directory}}" state=directory
+
+    - name: create temporary folder
+      tempfile:
+        state: directory
+        suffix: -elk-deploy
+      register: temp_dir
+
+    - name: copy elk input file config file
+      template:
+        src: elk_input.j2
+        dest: "{{ elk_config_directory  }}/01-{{ elk_input_type }}-{{ elk_input_type_2 }}-input.conf"
+
+    - name: copy elk filter config file
+      template:
+        src: elk_filter.j2
+        dest: "{{ elk_config_directory  }}/12-{{ elk_input_type }}-{{ elk_input_type_2 }}-filter.conf"
+
+    - name: copy elk output config filer
+      template:
+        src: elk_output.j2
+        dest: "{{ elk_config_directory }}/30-{{ elk_input_type }}-{{ elk_input_type_2 }}-output.conf"
+
+    - name: create patterns directory
+      file:
+        path: "{{ elk_config_directory }}/patterns"
+        state: directory
+
+    - name: copy our custom patterns file
+      copy:
+        src: elk/odoo
+        dest: "{{ elk_config_directory }}/patterns"
+
+    - name: set input elk folder right
+      file:
+        path: "{{ elk_input_directory }}"
+        state: directory
+        mode: "a+r"
+        recurse: yes
+
+    - name: Ensure that Docker is started
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Start elk container
+      docker_container:
+        name: elk
+        image: sebp/elk
+        state: started
+        restart: yes
+        ports:
+        - "5601:5601"
+        - "9200:9200"
+        - "5044:5044"
+        volumes:
+        - elk-data:/var/lib/elasticsearch
+        - "{{ elk_config_directory  }}:/etc/logstash/conf.d"
+        - /data:/data
+    - name: install multiline module
+      command: docker exec -i elk /opt/logstash/bin/logstash-plugin install logstash-filter-multiline
+      register: logstash_install_module
+      failed_when:  "'Installation successful' not in logstash_install_module.stdout_lines"
+    - name: restart elk container after installing plugin
+      docker_container:
+        restart: yes
+        name: elk
