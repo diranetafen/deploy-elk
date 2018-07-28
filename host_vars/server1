@@ -1,0 +1,6 @@
+elk_data_directory: "/data"
+elk_base_directory: "{{ elk_data_directory  }}/elk"
+elk_input_directory: "{{ elk_base_directory }}/input"
+elk_config_directory: "{{ elk_base_directory }}/config"
+elk_input_type: "pozos"
+elk_input_type_2: "odoo"

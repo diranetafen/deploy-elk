@@ -1,0 +1,16 @@
+input {
+  file {
+    path => "{{ elk_input_directory }}/*/logs/*.log"
+    sincedb_path => "/dev/null"
+    start_position => "beginning"
+    type => "{{ elk_input_type  }}"
+       }
+
+  file {
+    path => "{{ elk_input_directory }}/*/logs/odoo/*.log"
+    sincedb_path => "/dev/null"
+    start_position => "beginning"
+    type => "{{ elk_input_type_2 }}"
+
+      }
+}
